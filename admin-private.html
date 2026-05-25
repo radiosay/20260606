@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RSVP 관리</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --navy: #1e3a5f; --navy-mid: #2d5282;
+      --pink: #d4849a; --pink-pale: #fce8ed;
+      --cream: #faf8f3; --border: #dde3ec;
+      --text-dark: #1a2744; --text-mid: #4a5a72;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family:'Pretendard',sans-serif;
+      background:#d9e2ed; min-height:100vh;
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    /* ── 로그인 ── */
+    .login-card {
+      background:white; border-radius:20px; padding:48px 36px;
+      width:100%; max-width:360px;
+      box-shadow:0 20px 48px rgba(30,58,95,.15); text-align:center;
+    }
+    .login-logo { font-size:36px; margin-bottom:16px; }
+    .login-title { font-size:20px; font-weight:700; color:var(--navy); margin-bottom:6px; }
+    .login-sub   { font-size:13px; color:var(--text-mid); margin-bottom:32px; }
+    .login-input {
+      width:100%; padding:14px 16px;
+      border:1.5px solid var(--border); border-radius:10px;
+      font-size:16px; font-family:'Pretendard',sans-serif;
+      color:var(--text-dark); outline:none;
+      text-align:center; letter-spacing:4px; margin-bottom:16px;
+    }
+    .login-input:focus { border-color:var(--navy-mid); }
+    .login-btn {
+      width:100%; padding:14px; background:var(--navy);
+      color:white; border:none; border-radius:10px;
+      font-size:15px; font-weight:700; cursor:pointer;
+      font-family:'Pretendard',sans-serif; transition:background .2s;
+    }
+    .login-btn:hover { background:var(--navy-mid); }
+    .login-err { margin-top:12px; font-size:13px; color:#c0392b; display:none; }
+
+    /* ── 대시보드 ── */
+    .dashboard { display:none; width:100%; max-width:960px; padding:24px 16px; }
+
+    .dash-header {
+      background:var(--navy); color:white; border-radius:16px;
+      padding:24px 28px; margin-bottom:20px;
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:12px;
+    }
+    .dash-title { font-size:20px; font-weight:700; }
+    .dash-sub   { font-size:13px; opacity:.75; margin-top:4px; }
+    .dash-btns  { display:flex; gap:8px; flex-wrap:wrap; }
+    .icon-btn {
+      background:rgba(255,255,255,.15); color:white;
+      border:1px solid rgba(255,255,255,.3); border-radius:8px;
+      padding:8px 16px; font-size:13px; font-weight:600;
+      cursor:pointer; font-family:'Pretendard',sans-serif;
+      text-decoration:none; display:inline-flex; align-items:center; gap:6px;
+    }
+    .icon-btn:hover { background:rgba(255,255,255,.28); }
+
+    .stats-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      gap:12px; margin-bottom:20px;
+    }
+    .stat-card {
+      background:white; border-radius:14px; padding:20px 16px;
+      text-align:center; box-shadow:0 4px 16px rgba(30,58,95,.08);
+    }
+    .stat-num   { font-size:36px; font-weight:700; color:var(--navy); }
+    .stat-label { font-size:12px; color:var(--text-mid); margin-top:4px; }
+    .stat-card.attend .stat-num { color:#27ae60; }
+    .stat-card.absent .stat-num { color:#e74c3c; }
+    .stat-card.song   .stat-num { color:var(--pink); }
+
+    .table-wrap {
+      background:white; border-radius:16px;
+      overflow:hidden; box-shadow:0 4px 16px rgba(30,58,95,.08);
+      overflow-x:auto;
+    }
+    table { width:100%; border-collapse:collapse; font-size:13px; min-width:600px; }
+    th {
+      background:var(--navy); color:rgba(255,255,255,.85);
+      padding:14px 16px; text-align:left; font-weight:600;
+      font-size:12px; letter-spacing:.5px; white-space:nowrap;
+    }
+    td {
+      padding:13px 16px; border-bottom:1px solid var(--border);
+      color:var(--text-dark); vertical-align:top; word-break:break-word;
+    }
+    tr:last-child td { border-bottom:none; }
+    tr:nth-child(even) td { background:#f8fafc; }
+    .badge {
+      display:inline-block; padding:3px 10px;
+      border-radius:999px; font-size:11px; font-weight:700;
+    }
+    .badge.attend { background:#e8f8ef; color:#27ae60; }
+    .badge.absent { background:#fdecea; color:#e74c3c; }
+
+    .empty-msg { text-align:center; padding:48px; color:var(--text-mid); font-size:14px; }
+    .loading   { text-align:center; padding:48px; color:var(--text-mid); font-size:14px; }
+    .del-btn {
+      background:none; border:1px solid #e74c3c; color:#e74c3c;
+      border-radius:6px; padding:4px 10px; font-size:11px; font-weight:600;
+      cursor:pointer; font-family:'Pretendard',sans-serif; transition:all .15s;
+      white-space:nowrap;
+    }
+    .del-btn:hover { background:#e74c3c; color:white; }
+
+    /* ── 설정 안내 ── */
+    .setup-box {
+      background:#fff8e6; border:1px solid #fcd97a;
+      border-radius:14px; padding:20px 22px; margin-bottom:20px;
+      font-size:13px; line-height:1.8; color:#7a5900; display:none;
+    }
+    .setup-box h3 { font-size:15px; margin-bottom:10px; }
+    .setup-box ol { margin-left:18px; }
+    .setup-box code {
+      display:block; background:rgba(0,0,0,.07);
+      border-radius:6px; padding:12px 14px;
+      font-size:11.5px; margin:10px 0;
+      white-space:pre; overflow-x:auto; line-height:1.6;
+    }
+
+    /* ── 에러 배너 ── */
+    .err-box {
+      background:#fdecea; border:1px solid #f5c6c6;
+      border-radius:12px; padding:16px 20px; margin-bottom:16px;
+      font-size:13px; color:#c0392b; display:none; line-height:1.7;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 로그인 -->
+  <div class="login-card" id="login-card">
+    <div class="login-logo">🗝️</div>
+    <div class="login-title">RSVP 관리자</div>
+    <div class="login-sub">안영광 ♥ 정찬미 결혼식</div>
+    <input class="login-input" type="password" id="key-input"
+           placeholder="비밀번호" autocomplete="off">
+    <button class="login-btn" onclick="doLogin()">로그인</button>
+    <div class="login-err" id="login-err">비밀번호가 올바르지 않습니다.</div>
+  </div>
+
+  <!-- 대시보드 -->
+  <div class="dashboard" id="dashboard">
+
+    <div class="setup-box" id="setup-box">
+      <h3>⚙️ Google Apps Script 설정이 필요합니다</h3>
+      <p><code>js/config.js</code>의 <b>scriptUrl</b>이 비어 있습니다.<br>
+      아래 단계를 따라 설정하세요 (최초 1회만 필요):</p>
+      <ol>
+        <li><a href="https://script.google.com" target="_blank">script.google.com</a> → 새 프로젝트 생성</li>
+        <li>아래 코드를 전체 복사 후 붙여넣기 → 저장 (Ctrl+S)</li>
+        <li>상단 <b>배포 → 새 배포</b> 클릭<br>
+          &nbsp;· 유형: <b>웹 앱</b><br>
+          &nbsp;· 실행 계정: <b>나</b><br>
+          &nbsp;· 액세스: <b>모든 사람(익명 포함)</b> ← 반드시 이것으로!</li>
+        <li>배포 후 나오는 URL → <code>js/config.js</code>의 <b>scriptUrl</b>에 붙여넣기</li>
+        <li>이미 배포한 Apps Script가 있다면 코드를 아래로 <b>교체 후 재배포</b> 필요</li>
+      </ol>
+      <p style="margin-top:10px;"><b>Apps Script 코드 (복사해서 붙여넣기):</b></p>
+      <code id="script-code"></code>
+    </div>
+
+    <div class="err-box" id="err-box"></div>
+
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">📋 RSVP 참석 회신 현황</div>
+        <div class="dash-sub" id="dash-sub">데이터 불러오는 중...</div>
+      </div>
+      <div class="dash-btns">
+        <button class="icon-btn" onclick="loadData()">↻ 새로고침</button>
+        <a class="icon-btn" id="raw-link" href="#" target="_blank">🔗 원본 JSON</a>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-total">—</div>
+        <div class="stat-label">전체 회신</div>
+      </div>
+      <div class="stat-card attend">
+        <div class="stat-num" id="stat-attend">—</div>
+        <div class="stat-label">참석</div>
+      </div>
+      <div class="stat-card absent">
+        <div class="stat-num" id="stat-absent">—</div>
+        <div class="stat-label">불참</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-guests">—</div>
+        <div class="stat-label">총 참석 인원</div>
+      </div>
+      <div class="stat-card song">
+        <div class="stat-num" id="stat-songs">—</div>
+        <div class="stat-label">신청곡 수</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="loading" id="table-loading">📡 데이터 불러오는 중...</div>
+      <table id="rsvp-table" style="display:none;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>접수 시간</th>
+            <th>참석여부</th>
+            <th>성함</th>
+            <th>참석 인원</th>
+            <th>어린이 정보</th>
+            <th>피로연 신청곡</th>
+            <th>삭제</th>
+          </tr>
+        </thead>
+        <tbody id="rsvp-tbody"></tbody>
+      </table>
+      <div class="empty-msg" id="table-empty" style="display:none;">
+        아직 접수된 회신이 없습니다.
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+  var _adminKey = '';
+  var _scriptUrl = '';
+
+  /* ── 로그인 ── */
+  function doLogin() {
+    var input    = (document.getElementById('key-input').value || '').trim();
+    var cfg      = window.APP_CONFIG || {};
+    var expected = cfg.adminKey || 'wedding2026secret';
+
+    if (input === expected) {
+      _adminKey  = input;
+      _scriptUrl = cfg.scriptUrl || '';
+
+      document.getElementById('login-card').style.display = 'none';
+      document.getElementById('dashboard').style.display  = 'block';
+
+      // 원본 JSON 링크 세팅
+      if (_scriptUrl) {
+        document.getElementById('raw-link').href =
+          _scriptUrl + '?key=' + encodeURIComponent(_adminKey);
+      }
+      loadData();
+    } else {
+      var el = document.getElementById('login-err');
+      el.style.display = 'block';
+      setTimeout(function() { el.style.display = 'none'; }, 3000);
+    }
+  }
+
+  document.getElementById('key-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  /* ── 데이터 로드 (JSONP → fetch 순서로 시도) ── */
+  function loadData() {
+    showError('');
+    document.getElementById('table-loading').style.display = 'block';
+    document.getElementById('rsvp-table').style.display    = 'none';
+    document.getElementById('table-empty').style.display   = 'none';
+
+    if (!_scriptUrl) {
+      document.getElementById('table-loading').style.display = 'none';
+      document.getElementById('setup-box').style.display = 'block';
+      fillScriptCode((window.APP_CONFIG || {}).adminKey || 'wedding2026secret');
+      updateStats([]);
+      return;
+    }
+
+    tryJsonp(_scriptUrl, _adminKey,
+      function(res) {          // 성공
+        document.getElementById('table-loading').style.display = 'none';
+        if (res.error) { showError('인증 오류: ' + res.error); return; }
+        renderTable(res.data || []);
+        updateStats(res.data || []);
+        document.getElementById('dash-sub').textContent =
+          '최종 업데이트: ' + new Date().toLocaleString('ko-KR');
+      },
+      function(errMsg) {       // 실패 → fetch 재시도
+        tryFetch(_scriptUrl, _adminKey,
+          function(res) {
+            document.getElementById('table-loading').style.display = 'none';
+            if (res.error) { showError('인증 오류: ' + res.error); return; }
+            renderTable(res.data || []);
+            updateStats(res.data || []);
+            document.getElementById('dash-sub').textContent =
+              '최종 업데이트: ' + new Date().toLocaleString('ko-KR');
+          },
+          function() {
+            document.getElementById('table-loading').style.display = 'none';
+            showError(
+              '❌ CORS 오류로 데이터를 불러올 수 없습니다.\n' +
+              '→ 위 [🔗 원본 JSON] 버튼을 눌러 브라우저에서 직접 확인하거나,\n' +
+              '→ 사이트를 GitHub Pages 등 웹 서버에 올린 뒤 접속하세요.'
+            );
+          }
+        );
+      }
+    );
+  }
+
+  /* JSONP 방식 (file:// 및 CORS 우회) */
+  function tryJsonp(url, key, onSuccess, onError) {
+    var cbName = '_rsvpCb' + Date.now();
+    var timer  = setTimeout(function() {
+      cleanup();
+      onError('timeout');
+    }, 8000);
+
+    window[cbName] = function(data) {
+      clearTimeout(timer);
+      cleanup();
+      onSuccess(data);
+    };
+
+    function cleanup() {
+      delete window[cbName];
+      var s = document.getElementById('_jsonp_s');
+      if (s) s.remove();
+    }
+
+    var s    = document.createElement('script');
+    s.id     = '_jsonp_s';
+    s.src    = url + '?key=' + encodeURIComponent(key) + '&callback=' + cbName;
+    s.onerror = function() {
+      clearTimeout(timer);
+      cleanup();
+      onError('script error');
+    };
+    document.head.appendChild(s);
+  }
+
+  /* 일반 fetch 방식 */
+  function tryFetch(url, key, onSuccess, onError) {
+    fetch(url + '?key=' + encodeURIComponent(key), { redirect: 'follow' })
+      .then(function(r) { return r.json(); })
+      .then(onSuccess)
+      .catch(function(e) { onError(e); });
+  }
+
+  /* ── 렌더링 ── */
+  function renderTable(rows) {
+    if (!rows.length) {
+      document.getElementById('table-empty').style.display = 'block';
+      return;
+    }
+    document.getElementById('rsvp-table').style.display = '';
+    var tbody = document.getElementById('rsvp-tbody');
+    tbody.innerHTML = '';
+    rows.forEach(function(row, i) {
+      var attending = row['참석여부'] === '참석';
+      var badge = attending
+        ? '<span class="badge attend">참석</span>'
+        : '<span class="badge absent">불참</span>';
+      var rowIndex = row['_rowIndex'] || '';
+      var rowName  = row['성함'] || '—';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + (i + 1) + '</td>' +
+        '<td style="white-space:nowrap;">' + esc(row['접수시간'] || '—') + '</td>' +
+        '<td>' + badge + '</td>' +
+        '<td><strong>' + esc(rowName) + '</strong></td>' +
+        '<td style="text-align:center;">' + esc(row['참석인원'] || '—') + '</td>' +
+        '<td>' + esc(row['어린이정보'] || '—') + '</td>' +
+        '<td>' + esc(row['신청곡'] || '—') + '</td>' +
+        '<td><button class="del-btn" onclick="deleteRsvp(' + rowIndex + ',\'' + esc(rowName).replace(/'/g,'\\\'') + '\')">삭제</button></td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function updateStats(rows) {
+    var attend = rows.filter(function(r){ return r['참석여부'] === '참석'; });
+    var absent = rows.filter(function(r){ return r['참석여부'] === '불참'; });
+    var guests = attend.reduce(function(s,r){ return s + (parseInt(r['참석인원'])||1); }, 0);
+    var songs  = rows.filter(function(r){ return (r['신청곡']||'').trim(); });
+    document.getElementById('stat-total').textContent  = rows.length;
+    document.getElementById('stat-attend').textContent = attend.length;
+    document.getElementById('stat-absent').textContent = absent.length;
+    document.getElementById('stat-guests').textContent = guests;
+    document.getElementById('stat-songs').textContent  = songs.length;
+  }
+
+  function showError(msg) {
+    var box = document.getElementById('err-box');
+    if (!msg) { box.style.display = 'none'; return; }
+    box.style.display    = 'block';
+    box.style.whiteSpace = 'pre-wrap';
+    box.textContent      = msg;
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── 행 삭제 ── */
+  function deleteRsvp(rowIndex, name) {
+    if (!rowIndex) { alert('삭제 정보가 없습니다. Apps Script를 최신 코드로 재배포 후 다시 시도하세요.'); return; }
+    if (!confirm('"' + name + '"님의 RSVP를 삭제하시겠습니까?')) return;
+
+    fetch(_scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'delete', key: _adminKey, rowIndex: rowIndex })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.status === 'ok') {
+        loadData();
+      } else {
+        alert('삭제 실패: ' + (res.error || res.msg || '알 수 없는 오류'));
+      }
+    })
+    .catch(function() {
+      alert('삭제 요청 중 오류가 발생했습니다.\n로컬 파일로 열었다면 웹 서버(GitHub Pages 등)를 통해 접속하세요.');
+    });
+  }
+
+  /* ── Apps Script 코드 출력 ── */
+  function fillScriptCode(adminKey) {
+    document.getElementById('script-code').textContent =
+'// ★ ADMIN_KEY를 변경하고 js/config.js의 adminKey와 동일하게 맞추세요\n' +
+'const ADMIN_KEY  = \'' + adminKey + '\';\n' +
+'const SHEET_NAME = \'RSVP Submissions\';\n\n' +
+'function getSheet() {\n' +
+'  const it = DriveApp.getFilesByName(\'Wedding RSVP Data\');\n' +
+'  const ss = it.hasNext() ? SpreadsheetApp.open(it.next())\n' +
+'                          : SpreadsheetApp.create(\'Wedding RSVP Data\');\n' +
+'  let sh = ss.getSheetByName(SHEET_NAME);\n' +
+'  if (!sh) {\n' +
+'    sh = ss.insertSheet(SHEET_NAME);\n' +
+'    sh.appendRow([\'접수시간\',\'참석여부\',\'성함\',\'참석인원\',\'어린이정보\',\'신청곡\']);\n' +
+'    sh.getRange(1,1,1,6).setFontWeight(\'bold\');\n' +
+'  }\n' +
+'  return sh;\n' +
+'}\n\n' +
+'function doPost(e) {\n' +
+'  try {\n' +
+'    const d  = JSON.parse(e.postData.contents);\n' +
+'    const sh = getSheet();\n' +
+'    if (d.action === \'delete\') {\n' +
+'      if (d.key !== ADMIN_KEY) return out({error:\'unauthorized\'}, null);\n' +
+'      const rowIndex = parseInt(d.rowIndex);\n' +
+'      if (!rowIndex || rowIndex < 2) return out({error:\'invalid row\'}, null);\n' +
+'      sh.deleteRow(rowIndex);\n' +
+'      return out({status:\'ok\'}, null);\n' +
+'    }\n' +
+'    sh.appendRow([\n' +
+'      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), \'yyyy-MM-dd HH:mm:ss\'),\n' +
+'      d.attendance === \'yes\' ? \'참석\' : \'불참\',\n' +
+'      d.name||\'—\', d.guests||\'—\', d.children||\'—\', d.song||\'—\'\n' +
+'    ]);\n' +
+'    return out({status:\'ok\'}, null);\n' +
+'  } catch(err) {\n' +
+'    return out({status:\'error\', msg: err.toString()}, null);\n' +
+'  }\n' +
+'}\n\n' +
+'function doGet(e) {\n' +
+'  const cb  = e.parameter.callback || null;\n' +
+'  const key = e.parameter.key || \'\';\n' +
+'  if (key !== ADMIN_KEY) return out({error:\'unauthorized\'}, cb);\n' +
+'  try {\n' +
+'    const sh   = getSheet();\n' +
+'    const rows = sh.getDataRange().getValues();\n' +
+'    if (rows.length <= 1) return out({data:[], total:0}, cb);\n' +
+'    const hdrs = rows[0];\n' +
+'    const data = rows.slice(1).map((r, i) => {\n' +
+'      const o = {_rowIndex: i + 2};\n' +
+'      hdrs.forEach((h,j) => { o[h] = r[j] ? String(r[j]) : \'\'; });\n' +
+'      return o;\n' +
+'    });\n' +
+'    return out({data, total: data.length}, cb);\n' +
+'  } catch(err) {\n' +
+'    return out({status:\'error\', msg: err.toString()}, cb);\n' +
+'  }\n' +
+'}\n\n' +
+'function out(obj, callback) {\n' +
+'  const json = JSON.stringify(obj);\n' +
+'  if (callback) {\n' +
+'    return ContentService\n' +
+'      .createTextOutput(callback + \'(\' + json + \')\')\n' +
+'      .setMimeType(ContentService.MimeType.JAVASCRIPT);\n' +
+'  }\n' +
+'  return ContentService\n' +
+'    .createTextOutput(json)\n' +
+'    .setMimeType(ContentService.MimeType.JSON);\n' +
+'}';
+  }
+  </script>
+</body>
+</html>
