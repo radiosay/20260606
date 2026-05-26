@@ -6,6 +6,7 @@
   <title>RSVP 관리</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --navy: #1e3a5f; --navy-mid: #2d5282;
@@ -17,7 +18,8 @@
     body {
       font-family:'Pretendard',sans-serif;
       background:#d9e2ed; min-height:100vh;
-      display:flex; align-items:center; justify-content:center;
+      display:flex; align-items:flex-start; justify-content:center;
+      padding:32px 16px;
     }
 
     /* ── 로그인 ── */
@@ -47,7 +49,7 @@
     .login-err { margin-top:12px; font-size:13px; color:#c0392b; display:none; }
 
     /* ── 대시보드 ── */
-    .dashboard { display:none; width:100%; max-width:960px; padding:24px 16px; }
+    .dashboard { display:none; width:100%; max-width:1400px; padding:0; }
 
     .dash-header {
       background:var(--navy); color:white; border-radius:16px;
@@ -87,14 +89,14 @@
       overflow:hidden; box-shadow:0 4px 16px rgba(30,58,95,.08);
       overflow-x:auto;
     }
-    table { width:100%; border-collapse:collapse; font-size:13px; min-width:600px; }
+    table { width:100%; border-collapse:collapse; font-size:15px; min-width:900px; }
     th {
       background:var(--navy); color:rgba(255,255,255,.85);
-      padding:14px 16px; text-align:left; font-weight:600;
-      font-size:12px; letter-spacing:.5px; white-space:nowrap;
+      padding:16px 20px; text-align:left; font-weight:600;
+      font-size:13px; letter-spacing:.5px; white-space:nowrap;
     }
     td {
-      padding:13px 16px; border-bottom:1px solid var(--border);
+      padding:15px 20px; border-bottom:1px solid var(--border);
       color:var(--text-dark); vertical-align:top; word-break:break-word;
     }
     tr:last-child td { border-bottom:none; }
@@ -182,6 +184,7 @@
       </div>
       <div class="dash-btns">
         <button class="icon-btn" onclick="loadData()">↻ 새로고침</button>
+        <button class="icon-btn" onclick="downloadExcel()">⬇ 엑셀 다운로드</button>
         <a class="icon-btn" id="raw-link" href="#" target="_blank">🔗 원본 JSON</a>
       </div>
     </div>
@@ -212,6 +215,16 @@
     <div class="table-wrap">
       <div class="loading" id="table-loading">📡 데이터 불러오는 중...</div>
       <table id="rsvp-table" style="display:none;">
+        <colgroup>
+          <col style="width:60px">
+          <col style="width:140px">
+          <col style="width:80px">
+          <col style="width:280px">
+          <col style="width:80px">
+          <col>
+          <col>
+          <col style="width:70px">
+        </colgroup>
         <thead>
           <tr>
             <th>#</th>
@@ -353,8 +366,43 @@
       .catch(function(e) { onError(e); });
   }
 
+  /* ── 엑셀 다운로드 ── */
+  var _cachedRows = [];
+  function downloadExcel() {
+    if (!_cachedRows.length) { alert('먼저 데이터를 불러와주세요.'); return; }
+    var data = [['#','접수시간','참석여부','성함','참석인원','어린이정보','피로연신청곡']];
+    _cachedRows.forEach(function(row, i) {
+      data.push([
+        i + 1,
+        fmtTime(row['접수시간']),
+        row['참석여부'] || '',
+        row['성함'] || '',
+        row['참석인원'] || '',
+        row['어린이정보'] || '',
+        row['신청곡'] || ''
+      ]);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [8,20,8,24,8,20,24].map(function(w){ return {wch:w}; });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'RSVP');
+    var date = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, 'RSVP_' + date + '.xlsx');
+  }
+
+  /* ── 시간 포맷: "2026-05-25 21:28" ── */
+  function fmtTime(raw) {
+    if (!raw) return '—';
+    var d = new Date(raw);
+    if (isNaN(d)) return raw;
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) +
+           ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
   /* ── 렌더링 ── */
   function renderTable(rows) {
+    _cachedRows = rows;
     if (!rows.length) {
       document.getElementById('table-empty').style.display = 'block';
       return;
@@ -371,8 +419,8 @@
       var rowName  = row['성함'] || '—';
       var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td>' + (i + 1) + '</td>' +
-        '<td style="white-space:nowrap;">' + esc(row['접수시간'] || '—') + '</td>' +
+        '<td style="white-space:nowrap;text-align:center;">' + (i + 1) + '</td>' +
+        '<td style="white-space:nowrap;">' + fmtTime(row['접수시간']) + '</td>' +
         '<td>' + badge + '</td>' +
         '<td><strong>' + esc(rowName) + '</strong></td>' +
         '<td style="text-align:center;">' + esc(row['참석인원'] || '—') + '</td>' +
